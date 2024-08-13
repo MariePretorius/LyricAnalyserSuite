@@ -4,24 +4,12 @@ import requests
 from transformers import pipeline
 from bs4 import BeautifulSoup
 
-CLIENT_ID = os.environ.get("CLIENT_ID")
-CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 
-classifier_path = 'classifier_model'
-
-
-def save_classifier(classifier, path):
-    classifier.model.save_pretrained(path)
-    classifier.tokenizer.save_pretrained(path)
+classifier = pipeline(task="text-classification", model='SamLowe/roberta-base-go_emotions', top_k=None)
 
 
 def load_classifier():
-    if os.path.exists(classifier_path):
-        classifier = pipeline(task="text-classification", model=classifier_path, tokenizer=classifier_path, top_k=None)
-    else:
-        classifier = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
-        save_classifier(classifier, classifier_path)
     return classifier
 
 
@@ -95,7 +83,10 @@ def get_lyrics_url(song_name, artist_name):
         return None
 
     path = hits[0]['result']['path']
-    lyrics_url = "https://genius.com" + path
+    if path:
+        lyrics_url = "https://genius.com" + path
+    else:
+        return None
 
     return lyrics_url
 
@@ -139,11 +130,9 @@ def remove_brackets(text):
 
 def run_lyric_analysis(song_name, artist):
     classifier = load_classifier()
-
     lyrics = get_lyrics(song_name, artist)
 
     if lyrics is None:
-        print("No lyrics found")
         return ""
 
     new_lyrics = []
@@ -166,6 +155,9 @@ def run_lyric_analysis(song_name, artist):
         except Exception as e:
             print(f"Error processing lyric: {cleaned_lyric}")
             print(f"Exception: {e}")
+            return ""
+        
+        if not scores:
             return ""
 
         for output in scores:
